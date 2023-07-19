@@ -1,0 +1,19 @@
+{
+  "name": "h2z",
+  "version": "1.0.0",
+  "description": "HEPIC Trace Emitter/Gateway",
+  "main": "h2z.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node h2z.js"
+  },
+  "author": "Lorenzo Mangani <lorenzo.mangani@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.4.0",
+    "lru-cache": "^10.0.0",
+    "microtime": "^3.1.1",
+    "uuid": "^9.0.0",
+    "ws": "^8.13.0"
+  }
+}
