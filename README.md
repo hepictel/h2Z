@@ -6,5 +6,5 @@ HEPIC Trace Emitter/Converter
 flowchart LR
 
 A[HEPIC] -->|WS/JSON| C{h2z}
-C -->|Trace| D[Zipkin]
+C -->|Zipkin/JSON| D[qryn]
 ```
