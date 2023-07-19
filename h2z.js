@@ -3,11 +3,11 @@ const axios = require('axios');
 const process = require('process');
 const LRU = require('lru-cache').LRUCache;
 const uuid = require('uuid');
-const microtime = require('microtime')
+const microtime = require('microtime');
 
 const options = {
-  max: 100,
-  ttl: 1000 * 60 * 2,
+  max: process.env.MAX_CACHE || 100,
+  ttl: 1000 * 60 * 5,
   dispose: function(key, n) {
     const payload = JSON.stringify(n);
     axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push', payload)
@@ -45,7 +45,6 @@ ws.on('connection', (socket) => {
   console.log('New WS connection established');
 
   socket.on('message', (data) => {
-    // console.log('Message received');
     const modifiedData = middleware(JSON.parse(data));
     messages.set(modifiedData.uuid || uuid.v4(), modifiedData);
   });
