@@ -7,5 +7,4 @@ flowchart LR
 
 A[HEPIC] -->|WS/JSON| C{h2z}
 C -->|Trace| D[Zipkin]
-C -->|Log| E[LogQL]
 ```
