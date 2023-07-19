@@ -1,16 +1,22 @@
-const WebSocket = require('ws');
-const axios = require('axios');
-const process = require('process');
-const LRU = require('lru-cache').LRUCache;
-const uuid = require('uuid');
-const microtime = require('microtime');
+import {WebSocketServer} from 'ws'
+import axios from 'axios'
+import { LRUCache } from 'lru-cache'
+import { v4 as uuid } from 'uuid'
+import microtime from 'microtime'
+
+const debug = true;
 
 const options = {
-  max: process.env.MAX_CACHE || 100,
-  ttl: 1000 * 60 * 5,
-  dispose: function(key, n) {
+  max: process.env.MAX_CACHE || 1,
+  ttl: 2,
+  dispose: function(n, key) {
+    console.log('dispose called')
     const payload = JSON.stringify(n);
-    axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push', payload)
+    axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push', payload, {
+      headers:{
+        'Content-Type': 'application/json'
+      }
+    })
       .then((response) => {
         console.log('Zipkin Data successfully sent', response.data);
       })
@@ -20,36 +26,45 @@ const options = {
   }
 };
 
-let messages = new LRU(options);
+let messages = new LRUCache(options);
 
 function middleware(data) {
 
-  var trace = {
+  var trace = [{
    "id": data.uuid.split('-')[0] || "1234",
    "traceId": data.call_id || "d6e9329d67b6146b",
    "timestamp": microtime.now(),
    "duration": data.duration * 1000 || 1000,
-   "name": `$data.from_user -> $data.ruri_user: $data.status_text`,
+   "name": `${data.from_user} -> ${data.ruri_user}: ${data.status_text}`,
    "tags": data,
     "localEndpoint": {
       "serviceName": "hepic"
     }
-  }
+  }]
 
   return trace;
 }
 
-const ws = new WebSocket.Server({ port: process.env.WS_PORT | 18909 });
+const wss = new WebSocketServer({ port: process.env.WS_PORT | 18909 });
+console.log('Listening on ', process.env.WS_PORT | 18909)
 
-ws.on('connection', (socket) => {
+wss.on('connection', (ws) => {
   console.log('New WS connection established');
 
-  socket.on('message', (data) => {
-    const modifiedData = middleware(JSON.parse(data));
-    messages.set(modifiedData.uuid || uuid.v4(), modifiedData);
+  ws.on('error', (err) => {
+    console.log(`Websocket error: ${err}`)
+  })
+
+  ws.on('message', async (data) => {
+    if (debug) {
+      console.log('received data')
+      console.log(data.toString())
+    }
+    const modifiedData = middleware(JSON.parse(data.toString()))
+    messages.set(modifiedData.uuid || uuid(), modifiedData)
   });
 
-  socket.on('close', () => {
+  ws.on('close', () => {
     console.log('WS Connection closed');
   });
 });
