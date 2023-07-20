@@ -1,6 +1,6 @@
 <img src="https://avatars2.githubusercontent.com/u/27866033?s=200&v=4">
 
-# h2z
+# h2Z
 HEPIC:TDR Zipkin Trace Emitter
 
 ### Status
