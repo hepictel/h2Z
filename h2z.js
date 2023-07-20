@@ -3,15 +3,18 @@ import axios from 'axios'
 import { LRUCache } from 'lru-cache'
 import { v4 as uuid } from 'uuid'
 import microtime from 'microtime'
+import crypto from 'crypto'
 
 const debug = true;
 
 const options = {
-  max: process.env.MAX_CACHE || 1,
-  ttl: 2,
+  max: process.env.MAX_CACHE || 10000,
+  ttl: 2000,
+  ttlAutopurge: true,
   dispose: function(n, key) {
-    console.log('dispose called')
+    console.log('Batch disposal... ')
     const payload = JSON.stringify(n);
+    console.log(payload);
     axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push', payload, {
       headers:{
         'Content-Type': 'application/json'
@@ -30,23 +33,57 @@ let messages = new LRUCache(options);
 
 function middleware(data) {
 
+  data = allStrings(data)
+  var traceId = hashString(data.callid, 32);
+  var parentId = hashString(data.uuid, 16);
+
   var trace = [{
-   "id": data.uuid.split('-')[0] || "1234",
-   "traceId": data.call_id || "d6e9329d67b6146b",
-   "timestamp": microtime.now(),
-   "duration": data.duration * 1000 || 1000,
+   "id": parentId,
+   "traceId": traceId,
+   "timestamp": data.micro_ts || microtime.now(),
+   "duration": data.duration * 1000000 || 1000,
    "name": `${data.from_user} -> ${data.ruri_user}: ${data.status_text}`,
    "tags": data,
     "localEndpoint": {
-      "serviceName": "hepic"
+      "serviceName": data.type || "hepic"
     }
   }]
-
+  
+  // Sub Span Generator
+  if (data.cdr_ringing > 0) {
+        trace.push({
+           "id": hashString(data.uuid.split('-')[0].slice(0, -2) + "10", 16),
+           "parentId": parentId,
+           "traceId": traceId,
+           "timestamp": data.cdr_start * 1000 || microtime.now(),
+           "duration": (data.cdr_ringing * 1000) - data.micro_ts || 1000,
+           "name": `${data.from_user} -> ${data.ruri_user}: Ringing`,
+           "tags": data,
+            "localEndpoint": {
+              "serviceName": data.type || "hepic"
+            }
+        })
+  }
+  if (data.cdr_connect > 0) {
+        trace.push({
+           "id": hashString(data.uuid.split('-')[0].slice(0, -2) + "20", 16),
+           "parentId": parentId,
+           "traceId": traceId,
+           "timestamp": data.cdr_start * 1000 || microtime.now(),
+           "duration": (data.cdr_connect * 1000 ) - data.micro_ts || 1000,
+           "name": `${data.from_user} -> ${data.ruri_user}: Connected`,
+           "tags": data,
+            "localEndpoint": {
+              "serviceName": data.type || "hepic"
+            }
+        })
+  }
+  
   return trace;
 }
 
-const wss = new WebSocketServer({ port: process.env.WS_PORT | 18909 });
-console.log('Listening on ', process.env.WS_PORT | 18909)
+const wss = new WebSocketServer({ port: process.env.WS_PORT || 18909 });
+console.log('Listening on ', process.env.WS_PORT || 18909)
 
 wss.on('connection', (ws) => {
   console.log('New WS connection established');
@@ -56,15 +93,30 @@ wss.on('connection', (ws) => {
   })
 
   ws.on('message', async (data) => {
-    if (debug) {
-      console.log('received data')
-      console.log(data.toString())
-    }
-    const modifiedData = middleware(JSON.parse(data.toString()))
-    messages.set(modifiedData.uuid || uuid(), modifiedData)
+    data = JSON.parse(data.toString());
+    if (data.status < 10 ) return;
+    if (messages.has(data.uuid)) return;
+    const modifiedData = middleware(data)
+    messages.set(modifiedData.uuid, modifiedData)
   });
 
   ws.on('close', () => {
     console.log('WS Connection closed');
   });
 });
+
+/* Utils */
+
+function hashString(str, max) {
+    const hash = crypto.createHash('sha256');
+    hash.update(str.toString());
+    const fullHash = hash.digest('hex');
+    return fullHash.substr(0, max || 32);
+}
+
+function allStrings(data){
+  for (let key in data) {
+    data[key] = data[key].toString()
+  }
+  return data;
+}
