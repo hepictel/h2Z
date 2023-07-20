@@ -19,4 +19,4 @@ style C fill:#c9daf8ff
 
 ## Screenshots
 
-![image](https://github.com/hepictel/h2z/assets/1423657/c69ea8aa-77fe-4214-97c7-ac434d5b3143)
+![image](https://github.com/hepictel/h2z/assets/1423657/fe388ee6-8eff-4682-a759-d4c256ccd1c9)
