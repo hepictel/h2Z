@@ -1,11 +1,10 @@
 import {WebSocketServer} from 'ws'
 import axios from 'axios'
 import { LRUCache } from 'lru-cache'
-import { v4 as uuid } from 'uuid'
 import microtime from 'microtime'
 import crypto from 'crypto'
 
-const debug = true;
+const debug = process.env.DEBUG || false
 
 const options = {
   max: process.env.MAX_CACHE || 10000,
@@ -13,31 +12,30 @@ const options = {
   ttlAutopurge: true,
   dispose: function(n, key) {
     console.log('Batch disposal... ')
-    const payload = JSON.stringify(n);
-    console.log(payload);
+    const payload = JSON.stringify(n)
+    if (debug) console.log(payload)
     axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push', payload, {
       headers:{
         'Content-Type': 'application/json'
       }
     })
       .then((response) => {
-        console.log('Zipkin Data successfully sent', response.data);
+        console.log('Zipkin Data successfully sent', response.data)
       })
       .catch((error) => {
-        console.log('An error occurred while sending data', error);
-      });
+        console.log('An error occurred while sending data', error)
+      })
   }
-};
+}
 
-let messages = new LRUCache(options);
+let messages = new LRUCache(options)
 
 function middleware(data) {
-
   data = allStrings(data)
-  var traceId = hashString(data.callid, 32);
-  var parentId = hashString(data.uuid, 16);
-
-  var trace = [{
+  const traceId = hashString(data.callid, 32)
+  const parentId = hashString(data.uuid, 16)
+  
+  let trace = [{
    "id": parentId,
    "traceId": traceId,
    "timestamp": data.micro_ts || microtime.now(),
@@ -48,7 +46,7 @@ function middleware(data) {
       "serviceName": data.type || "hepic"
     }
   }]
-  
+  if (debug) console.log(trace[0])
   // Sub Span Generator
   if (data.cdr_ringing > 0) {
         trace.push({
@@ -79,44 +77,45 @@ function middleware(data) {
         })
   }
   
-  return trace;
+  return trace
 }
 
-const wss = new WebSocketServer({ port: process.env.WS_PORT || 18909 });
-console.log('Listening on ', process.env.WS_PORT || 18909)
+const wss = new WebSocketServer({ port: process.env.WS_PORT || 18909 })
+console.log(`h2z running, listening on ${process.env.WS_PORT || 18909}, sending traces to ${process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push'}. Debug is ${process.env.DEBUG}`)
+
 
 wss.on('connection', (ws) => {
-  console.log('New WS connection established');
+  console.log('New WS connection established')
 
   ws.on('error', (err) => {
     console.log(`Websocket error: ${err}`)
   })
 
   ws.on('message', async (data) => {
-    data = JSON.parse(data.toString());
-    if (data.status < 10 ) return;
-    if (messages.has(data.uuid)) return;
+    data = JSON.parse(data.toString())
+    if (data.status < 10 ) return
+    if (messages.has(data.uuid)) return
     const modifiedData = middleware(data)
     messages.set(modifiedData.uuid, modifiedData)
-  });
+  })
 
   ws.on('close', () => {
-    console.log('WS Connection closed');
-  });
-});
+    console.log('WS Connection closed')
+  })
+})
 
 /* Utils */
 
 function hashString(str, max) {
-    const hash = crypto.createHash('sha256');
-    hash.update(str.toString());
-    const fullHash = hash.digest('hex');
-    return fullHash.substr(0, max || 32);
+    const hash = crypto.createHash('sha256')
+    hash.update(str.toString())
+    const fullHash = hash.digest('hex')
+    return fullHash.substring(0, max || 32)
 }
 
 function allStrings(data){
   for (let key in data) {
     data[key] = data[key].toString()
   }
-  return data;
+  return data
 }
