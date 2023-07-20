@@ -11,6 +11,11 @@ HEPIC:TDR Zipkin Trace Emitter
 - `HTTP_ENDPOINT`: Zipkin/Tempo HTTP Push API _(/tempo/api/push)_
 - `MAX_CACHE`: Buffer Cache in Seconds
 
+### Usage
+```
+ HTTP_ENDPOINT="http://qryn:3100/tempo/api/push" node h2z.js
+```
+
 <br>
 
 ### Workflow
