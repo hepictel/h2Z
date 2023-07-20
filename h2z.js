@@ -78,8 +78,8 @@ function middleware(data) {
   return trace;
 }
 
-const wss = new WebSocketServer({ port: process.env.WS_PORT | 18909 });
-console.log('Listening on ', process.env.WS_PORT | 18909)
+const wss = new WebSocketServer({ port: process.env.WS_PORT | 18910 });
+console.log('Listening on ', process.env.WS_PORT | 18910 )
 
 wss.on('connection', (ws) => {
   console.log('New WS connection established');
