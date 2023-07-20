@@ -34,12 +34,13 @@ let messages = new LRUCache(options);
 function middleware(data) {
 
   data = allStrings(data)
-  var traceId = hashString(data.callid);
+  var traceId = hashString(data.callid, 32);
+  var parentId = hashString(data.uuid, 16);
 
   var trace = [{
-   "id": data.uuid.split('-')[0],
+   "id": parentId,
    "traceId": traceId,
-   "timestamp": data.micro_ts,
+   "timestamp": data.micro_ts || microtime.now(),
    "duration": data.duration * 1000000 || 1000,
    "name": `${data.from_user} -> ${data.ruri_user}: ${data.status_text}`,
    "tags": data,
@@ -47,13 +48,14 @@ function middleware(data) {
       "serviceName": data.type || "hepic"
     }
   }]
+  
   // Sub Span Generator
   if (data.cdr_ringing > 0) {
         trace.push({
-           "id": data.uuid.split('-')[0] + "1",
-           "parentId": data.uuid.split('-')[0],
+           "id": hashString(data.uuid.split('-')[0].slice(0, -2) + "10", 16),
+           "parentId": parentId,
            "traceId": traceId,
-           "timestamp": data.cdr_start * 1000,
+           "timestamp": data.cdr_start * 1000 || microtime.now(),
            "duration": (data.cdr_ringing * 1000) - data.micro_ts || 1000,
            "name": `${data.from_user} -> ${data.ruri_user}: Ringing`,
            "tags": data,
@@ -64,10 +66,10 @@ function middleware(data) {
   }
   if (data.cdr_connect > 0) {
         trace.push({
-           "id": data.uuid.split('-')[0] + "2",
-           "parentId": data.uuid.split('-')[0],
+           "id": hashString(data.uuid.split('-')[0].slice(0, -2) + "20", 16),
+           "parentId": parentId,
            "traceId": traceId,
-           "timestamp": data.cdr_start * 1000,
+           "timestamp": data.cdr_start * 1000 || microtime.now(),
            "duration": (data.cdr_connect * 1000 ) - data.micro_ts || 1000,
            "name": `${data.from_user} -> ${data.ruri_user}: Connected`,
            "tags": data,
@@ -76,7 +78,7 @@ function middleware(data) {
             }
         })
   }
-
+  
   return trace;
 }
 
@@ -105,11 +107,11 @@ wss.on('connection', (ws) => {
 
 /* Utils */
 
-function hashString(str) {
+function hashString(str, max) {
     const hash = crypto.createHash('sha256');
     hash.update(str.toString());
     const fullHash = hash.digest('hex');
-    return fullHash.substr(0, 32);
+    return fullHash.substr(0, max || 32);
 }
 
 function allStrings(data){
