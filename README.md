@@ -1,5 +1,7 @@
+<img src="https://avatars2.githubusercontent.com/u/27866033?s=200&v=4">
+
 # h2z
-HEPIC TDR to Zipkin Trace relay
+HEPIC:TDR Zipkin Trace Emitter
 
 ### Status
 - Experimental
@@ -26,4 +28,4 @@ style C fill:#c9daf8ff
 
 ### Example
 
-![image](https://github.com/hepictel/h2z/assets/1423657/fe388ee6-8eff-4682-a759-d4c256ccd1c9)
+![hepic_telemetry](https://github.com/hepictel/h2z/assets/1423657/65e8efa5-2468-475b-95f4-62d3ca196c37)
