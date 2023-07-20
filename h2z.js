@@ -29,18 +29,51 @@ const options = {
 let messages = new LRUCache(options);
 
 function middleware(data) {
-
+  // Root Span
   var trace = [{
    "id": data.uuid.split('-')[0] || "1234",
    "traceId": data.call_id || "d6e9329d67b6146b",
-   "timestamp": microtime.now(),
-   "duration": data.duration * 1000 || 1000,
+   "timestamp": data.cdr_start || microtime.now(),
+   "duration": data.duration * 1000000 || 1000,
    "name": `${data.from_user} -> ${data.ruri_user}: ${data.status_text}`,
    "tags": data,
     "localEndpoint": {
-      "serviceName": "hepic"
+      "serviceName": data.type || "hepic"
     }
   }]
+  
+  // Sub Spans
+  if (data.cdr_start){
+    if (data.cdr_ringing > 0) {
+        trace.push({
+           "id": data.uuid.split('-')[0] + "1",
+           "parentId": data.uuid.split('-')[0],
+           "traceId": data.call_id,
+           "timestamp": data.cdr_start || microtime.now(),
+           "duration": (data.cdr_ringing - data.cdr_start) * 1000000 || 1000,
+           "name": `${data.from_user} -> ${data.ruri_user}: Ringing`,
+           "tags": data,
+            "localEndpoint": {
+              "serviceName": data.type || "hepic"
+            }
+        })
+    }
+    if (data.cdr_conected > 0) {
+        trace.push({
+           "id": data.uuid.split('-')[0] + "2",
+           "parentId": data.uuid.split('-')[0],
+           "traceId": data.call_id,
+           "timestamp": data.cdr_ringing || microtime.now(),
+           "duration": (data.cdr_connected - data.cdr_ringing) * 1000000 || 1000,
+           "name": `${data.from_user} -> ${data.ruri_user}: Connected`,
+           "tags": data,
+            "localEndpoint": {
+              "serviceName": data.type || "hepic"
+            }
+        })
+
+    }
+  }
 
   return trace;
 }
@@ -57,8 +90,11 @@ wss.on('connection', (ws) => {
 
   ws.on('message', async (data) => {
     if (debug) {
-      console.log('received data')
       console.log(data.toString())
+    }
+    if (data.status < 10) { 
+      if (debug) console.log('discard non-final tdrs')
+      return;
     }
     const modifiedData = middleware(JSON.parse(data.toString()))
     messages.set(modifiedData.uuid || uuid(), modifiedData)
