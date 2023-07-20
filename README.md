@@ -1,7 +1,7 @@
 <a href="https://hepic.cloud"><img src="https://avatars2.githubusercontent.com/u/27866033?s=200&v=4"></a>
 
 # h2Z
-HEPIC:TDR Zipkin Trace Emitter
+[hepic](https://hepic.cloud) zipkin trace emitter for [qryn](https://qryn.cloud)
 
 ### Status
 - Experimental
