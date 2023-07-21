@@ -42,7 +42,7 @@ function middleware(data) {
    "traceId": traceId,
    "timestamp": data.micro_ts || microtime.now(),
    "duration": data.duration * 1000000 || 1000,
-   "name": `${data.from_user} -> ${data.ruri_user}: ${data.status_text}`,
+   "name": "Finished",
    "tags": data,
     "localEndpoint": {
       "serviceName": data.type || "hepic"
@@ -57,7 +57,7 @@ function middleware(data) {
            "traceId": traceId,
            "timestamp": data.cdr_start * 1000 || microtime.now(),
            "duration": (data.cdr_ringing * 1000) - data.micro_ts || 1000,
-           "name": `${data.from_user} -> ${data.ruri_user}: Ringing`,
+           "name": "Ringing",
            "tags": data,
             "localEndpoint": {
               "serviceName": data.type || "hepic"
@@ -71,7 +71,7 @@ function middleware(data) {
            "traceId": traceId,
            "timestamp": data.cdr_start * 1000 || microtime.now(),
            "duration": (data.cdr_connect * 1000 ) - data.micro_ts || 1000,
-           "name": `${data.from_user} -> ${data.ruri_user}: Connected`,
+           "name": "Connected",
            "tags": data,
             "localEndpoint": {
               "serviceName": data.type || "hepic"
