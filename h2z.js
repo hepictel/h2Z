@@ -5,13 +5,15 @@ import microtime from 'microtime'
 import crypto from 'crypto'
 
 const debug = process.env.DEBUG || false
+const enableTraces = process.env.TRACES || true
+const enableLogs = process.env.LOGS || false
 
 const options = {
   max: process.env.MAX_CACHE || 10000,
   ttl: 2000,
   ttlAutopurge: true,
   dispose: function(n, key) {
-    console.log('Batch disposal... ')
+    console.log('Trace Batch disposal... ')
     const payload = JSON.stringify(n)
     if (debug) console.log(payload)
     axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push', payload, {
@@ -30,6 +32,31 @@ const options = {
 
 let messages = new LRUCache(options)
 
+const log_options = {
+  max: process.env.MAX_CACHE || 10000,
+  ttl: 2000,
+  ttlAutopurge: true,
+  dispose: function(n, key) {
+    console.log('Log Batch disposal... ')
+    const payload = JSON.stringify(n)
+    if (debug) console.log(payload)
+    axios.post(process.env.HTTP_ENDPOINT || 'https://localhost:3100/loki/api/v1/push', payload, {
+      headers:{
+        'Content-Type': 'application/json'
+      }
+    })
+      .then((response) => {
+        console.log('LogQL Data successfully sent', response.data)
+      })
+      .catch((error) => {
+        console.log('An error occurred while sending logql data', error)
+      })
+  }
+}
+
+let log_messages = new LRUCache(log_options)
+
+
 function middleware(data) {
   data = allStrings(data)
   const traceId = hashString(data.callid, 32)
@@ -46,6 +73,7 @@ function middleware(data) {
       "serviceName": data.type || "hepic"
     }
   }]
+  
   if (debug) console.log(trace[0])
   // Sub Span Generator
   if (data.cdr_ringing > 0) {
@@ -80,6 +108,26 @@ function middleware(data) {
   return trace
 }
 
+function logs_middleware(data) {
+  // data = allStrings(data)
+  let labels = { type: data.type, job: "hepic" }
+  let logs = {
+      "streams": [
+          {
+              "stream": labels,
+              "values": [ 
+                  [
+                   data.micro_ts,
+                   data
+                  ]
+              ]
+          }
+      ]
+  }
+  if (debug) console.log(logs)
+  return logs
+}
+
 const wss = new WebSocketServer({ port: process.env.WS_PORT || 18909 })
 console.log(`h2z running, listening on ${process.env.WS_PORT || 18909}, sending traces to ${process.env.HTTP_ENDPOINT || 'https://localhost:3100/tempo/api/push'}. Debug is ${process.env.DEBUG}`)
 
@@ -95,8 +143,16 @@ wss.on('connection', (ws) => {
     data = JSON.parse(data.toString())
     if (data.status < 10 ) return
     if (messages.has(data.uuid)) return
-    const modifiedData = middleware(data)
-    messages.set(modifiedData.uuid, modifiedData)
+
+    if (enableTraces) {
+      const modifiedData = middleware(data)
+      messages.set(modifiedData.uuid, modifiedData)
+    }
+
+    if (enableLogs) {
+      const modifiedLogs = logs_middleware(data)
+      log_messages.set(data.uuid, modifiedLogs)
+    }
   })
 
   ws.on('close', () => {
