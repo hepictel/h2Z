@@ -5,6 +5,7 @@ import microtime from 'microtime'
 import crypto from 'crypto'
 
 const debug = process.env.DEBUG || false
+const allCdrs = process.env.ALLCDRS || false
 
 const options = {
   max: process.env.MAX_CACHE || 10000,
@@ -93,7 +94,7 @@ wss.on('connection', (ws) => {
 
   ws.on('message', async (data) => {
     data = JSON.parse(data.toString())
-    if (data.status < 10 ) return
+    if (data.status < 10 && !allCdrs ) return
     if (messages.has(data.uuid)) return
     const modifiedData = middleware(data)
     messages.set(modifiedData.uuid, modifiedData)

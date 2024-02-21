@@ -10,6 +10,7 @@
 - `WS_PORT`: Listening Websocket Port
 - `HTTP_ENDPOINT`: Zipkin/Tempo HTTP Push API _(/tempo/api/push)_
 - `MAX_CACHE`: Buffer Cache in Seconds
+- `ALLCDRS` :  Set to true to capture all CDRs _(without flag it captures Status > 10)_
 
 ### Usage
 ```
